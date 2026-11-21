@@ -1,0 +1,6 @@
+trades.db
+*.db
+.streamlit/secrets.toml
+screenshots/
+__pycache__/
+*.pyc
