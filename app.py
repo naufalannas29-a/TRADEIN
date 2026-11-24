@@ -66,6 +66,64 @@ section[data-testid="stSidebar"] .stRadio label:hover { background:#172337; }
 .positive { color:#32d296 !important; } .negative { color:#ff7184 !important; }
 div[data-testid="stTabs"] button { color:#9fb0c5; }
 div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-bottom-color:#43d9a6; }
+
+/* ---------- TRADEIN UI refresh: electric blue / premium trading desk ---------- */
+:root {
+  --bg:#070910; --panel:#101421; --panel2:#151c2d; --line:#252d43;
+  --muted:#929bb2; --text:#f1f4fb; --green:#38d9a5; --red:#ff647f;
+  --blue:#536dff; --blue2:#8294ff;
+}
+.stApp { background:radial-gradient(ellipse at 78% -12%,rgba(50,70,190,.18),transparent 34%),#070910 !important; }
+[data-testid="stHeader"] { background:rgba(7,9,16,.82) !important; backdrop-filter:blur(16px); }
+[data-testid="stSidebar"] { background:linear-gradient(180deg,#0d1120 0%,#090c15 100%) !important; border-right:1px solid #222a40 !important; }
+.block-container { max-width:1540px !important; padding-top:2rem !important; padding-left:2.2rem !important; padding-right:2.2rem !important; }
+h1 { font-size:2.25rem !important; letter-spacing:-.055em !important; }
+h2 { font-size:1.45rem !important; letter-spacing:-.04em !important; }
+h3 { font-size:1.08rem !important; }
+.brand { font-size:1.35rem !important; letter-spacing:-.055em !important; }
+.brand span { color:#7185ff !important; }
+.eyebrow { color:#8794b5 !important; letter-spacing:.16em !important; font-size:.68rem !important; }
+.small-muted { color:#8f9ab3 !important; }
+.panel, div[data-testid="stMetric"] {
+  background:linear-gradient(145deg,rgba(21,27,44,.96),rgba(13,17,29,.98)) !important;
+  border:1px solid #252d46 !important; border-radius:17px !important;
+  box-shadow:0 12px 32px rgba(0,0,0,.14) !important;
+}
+div[data-testid="stMetric"] { padding:19px 20px !important; min-height:122px !important; transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease; }
+div[data-testid="stMetric"]:hover { border-color:#4658b5 !important; transform:translateY(-2px); box-shadow:0 16px 34px rgba(0,0,0,.22) !important; }
+div[data-testid="stMetricLabel"] { color:#9ba7c1 !important; font-size:.7rem !important; letter-spacing:.13em !important; }
+div[data-testid="stMetricValue"] { color:#f4f6ff !important; font-size:1.75rem !important; letter-spacing:-.045em !important; }
+div[data-testid="stMetricDelta"] { font-size:.76rem !important; }
+.stButton > button, .stDownloadButton > button, button[kind="primary"] {
+  background:linear-gradient(135deg,#536dff,#354bd1) !important; border:1px solid #7185ff !important;
+  border-radius:11px !important; min-height:2.65rem !important; font-weight:700 !important;
+  box-shadow:0 6px 18px rgba(64,84,220,.18) !important; transition:all .18s ease !important;
+}
+.stButton > button:hover, .stDownloadButton > button:hover { filter:brightness(1.12); transform:translateY(-1px); }
+div[data-testid="stTextInput"] input, div[data-testid="stNumberInput"] input,
+div[data-testid="stDateInput"] input, div[data-testid="stTextArea"] textarea,
+div[data-testid="stSelectbox"] div[data-baseweb="select"], div[data-testid="stMultiSelect"] div[data-baseweb="select"] {
+  background:#0c1120 !important; border-color:#2a3452 !important; border-radius:10px !important;
+}
+div[data-testid="stFileUploader"] { background:#0c1120 !important; border:1px dashed #3a4770 !important; border-radius:14px !important; }
+div[data-testid="stDataFrame"] { border:1px solid #29324b !important; border-radius:14px !important; }
+hr { border-color:#252d43 !important; }
+section[data-testid="stSidebar"] .stRadio > div { gap:5px !important; }
+section[data-testid="stSidebar"] .stRadio label { padding:9px 12px !important; border:1px solid transparent; border-radius:10px !important; transition:all .16s ease; }
+section[data-testid="stSidebar"] .stRadio label:hover { background:#171e34 !important; border-color:#29365e !important; }
+section[data-testid="stSidebar"] .stRadio label[data-checked="true"] { background:rgba(83,109,255,.14) !important; border-color:rgba(111,132,255,.38) !important; }
+div[data-testid="stTabs"] button { padding:10px 14px !important; }
+div[data-testid="stTabs"] button[aria-selected="true"] { color:#91a2ff !important; border-bottom-color:#7185ff !important; }
+[data-testid="stExpander"] { background:#101625 !important; border:1px solid #252e47 !important; border-radius:13px !important; }
+[data-testid="stAlert"] { border-radius:12px !important; }
+.js-plotly-plot .plotly .modebar { opacity:.45; }
+@media (max-width: 900px) {
+  .block-container { padding-left:1rem !important; padding-right:1rem !important; padding-top:1.2rem !important; }
+  h1 { font-size:1.8rem !important; }
+  div[data-testid="stMetric"] { min-height:104px !important; padding:14px !important; }
+  div[data-testid="stMetricValue"] { font-size:1.35rem !important; }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
