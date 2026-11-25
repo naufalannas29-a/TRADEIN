@@ -490,22 +490,41 @@ with st.sidebar:
         unsafe_allow_html=True
     )
     st.markdown('<div class="sidebar-section-label">WORKSPACE</div>', unsafe_allow_html=True)
-    menu = [
-        "Overview", "Calendar", "Trade Journal", "Add Trade",
-        "Import MT5", "Analytics", "Reports", "Playbook", "Backup & Settings"
-    ]
-    if "tradein_page" not in st.session_state or st.session_state["tradein_page"] not in menu:
-        st.session_state["tradein_page"] = menu[0]
-    for menu_item in menu:
+    # Navigation is grouped into compact sections; page IDs stay unchanged
+    # so existing routing and session state remain compatible.
+    standalone_pages = ["Overview", "Calendar", "Playbook", "Backup & Settings"]
+    nav_groups = {
+        "Journal": ["Trade Journal", "Add Trade", "Import MT5"],
+        "Performance": ["Analytics", "Reports"],
+    }
+    all_pages = standalone_pages + [p for pages in nav_groups.values() for p in pages]
+    if "tradein_page" not in st.session_state or st.session_state["tradein_page"] not in all_pages:
+        st.session_state["tradein_page"] = "Overview"
+
+    for menu_item in standalone_pages[:2]:
         is_active = st.session_state["tradein_page"] == menu_item
-        if st.button(
-            menu_item,
-            key=f"nav_{menu_item}",
-            use_container_width=True,
-            type="primary" if is_active else "secondary"
-        ):
+        if st.button(menu_item, key=f"nav_{menu_item}", use_container_width=True,
+                     type="primary" if is_active else "secondary"):
             st.session_state["tradein_page"] = menu_item
             st.rerun()
+
+    for group_name, group_pages in nav_groups.items():
+        group_active = st.session_state["tradein_page"] in group_pages
+        with st.expander(group_name, expanded=group_active):
+            for menu_item in group_pages:
+                is_active = st.session_state["tradein_page"] == menu_item
+                if st.button(menu_item, key=f"nav_{menu_item}", use_container_width=True,
+                             type="primary" if is_active else "secondary"):
+                    st.session_state["tradein_page"] = menu_item
+                    st.rerun()
+
+    for menu_item in standalone_pages[2:]:
+        is_active = st.session_state["tradein_page"] == menu_item
+        if st.button(menu_item, key=f"nav_{menu_item}", use_container_width=True,
+                     type="primary" if is_active else "secondary"):
+            st.session_state["tradein_page"] = menu_item
+            st.rerun()
+
     page = st.session_state["tradein_page"]
     st.markdown(
         '<div class="sidebar-account-minimal"><div class="account-heading">ACCOUNT</div>'
