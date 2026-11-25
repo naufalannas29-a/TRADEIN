@@ -80,8 +80,8 @@ div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-b
 
 /* ---------- TraderWaves-inspired minimal sidebar ---------- */
 .sidebar-brand-stack{padding:15px 8px 27px;margin:0 0 18px;text-align:left;border-bottom:1px solid rgba(116,133,190,.12)}
-.sidebar-logo-mark{width:112px;height:58px;margin:0 0 11px 0;display:flex;align-items:center}
-.sidebar-logo-mark svg{width:100%;height:100%;overflow:visible}
+.sidebar-logo-mark{width:42px;height:42px;margin:0 0 11px 0;display:flex;align-items:center;justify-content:flex-start}
+.sidebar-logo-mark svg{width:42px;height:42px;overflow:visible}
 .sidebar-wordmark{font-family:'Manrope',sans-serif;font-size:1.52rem;font-weight:850;letter-spacing:-.065em;line-height:1;color:#f4f6ff}
 .sidebar-wordmark span{color:#8294ff}
 .sidebar-brand-stack .sidebar-subtitle{font-size:.55rem;letter-spacing:.16em;color:#7885a2;font-weight:700;margin-top:7px}
@@ -92,6 +92,8 @@ div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-b
 [data-testid="stSidebar"] div[data-testid="stRadio"] label:hover{background:rgba(120,140,255,.055)!important;color:#eef1ff!important}
 [data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked){background:rgba(83,109,255,.095)!important;color:#aebaff!important;box-shadow:inset 2px 0 0 #7185ff!important;font-weight:700!important}
 [data-testid="stSidebar"] div[data-testid="stRadio"] label>div:first-child{display:none!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label input[type="radio"]{display:none!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label [data-testid="stMarkdownContainer"]{margin-left:0!important;padding-left:0!important}
 [data-testid="stSidebar"] div[data-testid="stRadio"] label p{color:inherit!important;font-size:.86rem!important}
 .sidebar-account-minimal{margin:30px 9px 0;padding-top:14px;border-top:1px solid rgba(116,133,190,.12)}
 .account-heading{font-size:.59rem;font-weight:800;letter-spacing:.15em;color:#657291;margin-bottom:9px}
@@ -372,9 +374,9 @@ def chart_layout(fig, height=300):
 with st.sidebar:
     st.markdown(
         '<div class="sidebar-brand-stack">'
-        '<div class="sidebar-logo-mark"><svg viewBox="0 0 160 76" role="img" aria-label="TRADEIN logo">'
-        '<path d="M8 52 C28 52 28 24 48 24 S68 52 88 52 S108 24 128 24 S148 38 152 38" fill="none" stroke="#8294ff" stroke-width="7" stroke-linecap="round"/>'
-        '<path d="M8 66 C28 66 28 42 48 42 S68 66 88 66 S108 42 128 42 S148 54 152 54" fill="none" stroke="#536dff" stroke-width="4" stroke-linecap="round" opacity=".75"/>'
+        '<div class="sidebar-logo-mark"><svg viewBox="0 0 64 64" role="img" aria-label="TRADEIN triangle logo">'
+        '<path d="M32 5 L59 55 H5 Z" fill="none" stroke="#8294ff" stroke-width="5" stroke-linejoin="round"/>'
+        '<path d="M32 22 L45 47 H19 Z" fill="#536dff" opacity=".82"/>'
         '</svg></div>'
         '<div class="sidebar-wordmark">TRADEIN<span>.</span></div>'
         '<div class="sidebar-subtitle">YOUR PERSONAL TRADING JOURNAL</div></div>',
