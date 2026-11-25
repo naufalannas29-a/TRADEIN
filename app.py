@@ -224,6 +224,29 @@ div[data-testid="stTabs"] button[aria-selected="true"] { color:#91a2ff !importan
 }
 
 
+/* Button-based workspace navigation: no radio controls or bullets */
+[data-testid="stSidebar"] div.stButton > button{
+  width:100%!important;
+  justify-content:flex-start!important;
+  text-align:left!important;
+  border:1px solid transparent!important;
+  border-radius:8px!important;
+  background:transparent!important;
+  color:#a0abc2!important;
+  box-shadow:none!important;
+  padding:0.55rem 0.75rem!important;
+  min-height:2.45rem!important;
+}
+[data-testid="stSidebar"] div.stButton > button:hover{
+  background:rgba(132,149,255,.07)!important;
+  color:#edf0ff!important;
+  border-color:rgba(132,149,255,.12)!important;
+}
+[data-testid="stSidebar"] div.stButton > button[kind="primary"]{
+  background:rgba(83,109,255,.16)!important;
+  color:#e7eaff!important;
+  border-left:2px solid #7185ff!important;
+}
 /* FINAL SIDEBAR OVERRIDE: keep original triangle logo and remove Streamlit radio bullets */
 [data-testid="stSidebar"] div[data-testid="stRadio"] label{
   display:flex!important;
@@ -411,7 +434,19 @@ with st.sidebar:
         "Overview", "Calendar", "Trade Journal", "Add Trade",
         "Import MT5", "Analytics", "Reports", "Playbook", "Backup & Settings"
     ]
-    page = st.radio("Workspace navigation", menu, label_visibility="collapsed")
+    if "tradein_page" not in st.session_state or st.session_state["tradein_page"] not in menu:
+        st.session_state["tradein_page"] = menu[0]
+    for menu_item in menu:
+        is_active = st.session_state["tradein_page"] == menu_item
+        if st.button(
+            menu_item,
+            key=f"nav_{menu_item}",
+            use_container_width=True,
+            type="primary" if is_active else "secondary"
+        ):
+            st.session_state["tradein_page"] = menu_item
+            st.rerun()
+    page = st.session_state["tradein_page"]
     st.markdown(
         '<div class="sidebar-account-minimal"><div class="account-heading">ACCOUNT</div>'
         '<div class="account-name">Forex · MetaTrader 5</div>'
