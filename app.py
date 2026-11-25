@@ -78,6 +78,28 @@ div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-b
 @media(max-width:1150px){.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.metric-primary{grid-column:span 1}.risk-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-primary{grid-column:span 2}.risk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.risk-card{padding:13px}.risk-value{font-size:1.2rem}}
 
+/* ---------- TraderWaves-inspired minimal sidebar ---------- */
+.sidebar-brand-stack{padding:15px 8px 27px;margin:0 0 18px;text-align:left;border-bottom:1px solid rgba(116,133,190,.12)}
+.sidebar-logo-mark{width:112px;height:58px;margin:0 0 11px 0;display:flex;align-items:center}
+.sidebar-logo-mark svg{width:100%;height:100%;overflow:visible}
+.sidebar-wordmark{font-family:'Manrope',sans-serif;font-size:1.52rem;font-weight:850;letter-spacing:-.065em;line-height:1;color:#f4f6ff}
+.sidebar-wordmark span{color:#8294ff}
+.sidebar-brand-stack .sidebar-subtitle{font-size:.55rem;letter-spacing:.16em;color:#7885a2;font-weight:700;margin-top:7px}
+.sidebar-section-label{padding:0 9px;margin:0 0 9px;color:#697795;font-size:.61rem;letter-spacing:.16em}
+[data-testid="stSidebar"] div[data-testid="stRadio"]>label{display:none!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"]>div{gap:2px!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label{min-height:39px;padding:0 10px!important;margin:0!important;border:0!important;border-radius:7px!important;background:transparent!important;color:#a0abc2!important;font-size:.86rem!important;font-weight:550!important;box-shadow:none!important;transition:color .15s ease,background .15s ease}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label:hover{background:rgba(120,140,255,.055)!important;color:#eef1ff!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label:has(input:checked){background:rgba(83,109,255,.095)!important;color:#aebaff!important;box-shadow:inset 2px 0 0 #7185ff!important;font-weight:700!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label>div:first-child{display:none!important}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label p{color:inherit!important;font-size:.86rem!important}
+.sidebar-account-minimal{margin:30px 9px 0;padding-top:14px;border-top:1px solid rgba(116,133,190,.12)}
+.account-heading{font-size:.59rem;font-weight:800;letter-spacing:.15em;color:#657291;margin-bottom:9px}
+.sidebar-account-minimal .account-name{font-size:.78rem;font-weight:650;color:#dce3f4;margin:0 0 5px}
+.sidebar-account-minimal .account-status{font-size:.57rem;font-weight:650;letter-spacing:.08em;color:#7885a2}
+.sidebar-footer{margin:21px 9px 0;padding-top:12px;border-top:0;color:#586581;font-size:.56rem;letter-spacing:.11em}
+@media(max-width:700px){.sidebar-brand-stack{padding-bottom:20px;margin-bottom:14px}}
+
 /* ---------- Workspace navigation redesign ---------- */
 [data-testid="stSidebar"]{border-right:1px solid rgba(116,133,190,.12)!important;background:linear-gradient(180deg,#0b1020 0%,#090c15 55%,#080a11 100%)!important}
 [data-testid="stSidebar"]>div:first-child{padding-top:1.35rem}
@@ -348,21 +370,26 @@ def chart_layout(fig, height=300):
 
 # ---------- Sidebar ----------
 with st.sidebar:
-    st.markdown('<div class="sidebar-brand"><div class="brand-mark">◈</div><div><div class="brand">TRADEIN<span>.</span></div><div class="sidebar-subtitle">TRADING JOURNAL</div></div></div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-brand-stack">'
+        '<div class="sidebar-logo-mark"><svg viewBox="0 0 160 76" role="img" aria-label="TRADEIN logo">'
+        '<path d="M8 52 C28 52 28 24 48 24 S68 52 88 52 S108 24 128 24 S148 38 152 38" fill="none" stroke="#8294ff" stroke-width="7" stroke-linecap="round"/>'
+        '<path d="M8 66 C28 66 28 42 48 42 S68 66 88 66 S108 42 128 42 S148 54 152 54" fill="none" stroke="#536dff" stroke-width="4" stroke-linecap="round" opacity=".75"/>'
+        '</svg></div>'
+        '<div class="sidebar-wordmark">TRADEIN<span>.</span></div>'
+        '<div class="sidebar-subtitle">YOUR PERSONAL TRADING JOURNAL</div></div>',
+        unsafe_allow_html=True
+    )
     st.markdown('<div class="sidebar-section-label">WORKSPACE</div>', unsafe_allow_html=True)
     menu = [
         "Overview", "Calendar", "Trade Journal", "Add Trade",
         "Import MT5", "Analytics", "Reports", "Playbook", "Backup & Settings"
     ]
-    menu_icons = {
-        "Overview":"◫", "Calendar":"▦", "Trade Journal":"≡", "Add Trade":"＋",
-        "Import MT5":"⇧", "Analytics":"⌁", "Reports":"▤", "Playbook":"◇", "Backup & Settings":"⚙"
-    }
-    page = st.radio("Workspace navigation", menu, format_func=lambda item: f'{menu_icons[item]}   {item}', label_visibility="collapsed")
+    page = st.radio("Workspace navigation", menu, label_visibility="collapsed")
     st.markdown(
-        '<div class="sidebar-account"><div class="account-top"><span class="account-indicator"></span> ACCOUNT CONNECTION</div>'
-        '<div class="account-name">Forex <span>·</span> MetaTrader 5</div>'
-        f'<div class="account-status">{"CLOUD DATABASE" if CLOUD_DB else "LOCAL DATABASE"} <span>·</span> PRIVATE</div></div>',
+        '<div class="sidebar-account-minimal"><div class="account-heading">ACCOUNT</div>'
+        '<div class="account-name">Forex · MetaTrader 5</div>'
+        f'<div class="account-status">{"CLOUD DATABASE" if CLOUD_DB else "LOCAL DATABASE"} · PRIVATE</div></div>',
         unsafe_allow_html=True
     )
     st.markdown('<div class="sidebar-footer">PERSONAL EDITION <span>V2.0</span></div>', unsafe_allow_html=True)
