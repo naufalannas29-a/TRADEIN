@@ -223,6 +223,30 @@ div[data-testid="stTabs"] button[aria-selected="true"] { color:#91a2ff !importan
   div[data-testid="stMetricValue"] { font-size:1.35rem !important; }
 }
 
+
+/* FINAL SIDEBAR OVERRIDE: keep original triangle logo and remove Streamlit radio bullets */
+[data-testid="stSidebar"] div[data-testid="stRadio"] label{
+  display:flex!important;
+  align-items:center!important;
+  gap:0!important;
+  padding-left:12px!important;
+}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:first-child{
+  display:none!important;
+  width:0!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0!important;
+}
+[data-testid="stSidebar"] div[data-testid="stRadio"] label > div:last-child{
+  margin-left:0!important;
+  padding-left:0!important;
+}
+.sidebar-brand-stack .sidebar-logo-mark svg{
+  width:42px!important;
+  height:42px!important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
