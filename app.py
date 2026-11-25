@@ -67,6 +67,27 @@ section[data-testid="stSidebar"] .stRadio label:hover { background:#172337; }
 div[data-testid="stTabs"] button { color:#9fb0c5; }
 div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-bottom-color:#43d9a6; }
 
+/* ---------- Minimal performance cards ---------- */
+.metric-grid{display:grid;grid-template-columns:1.35fr repeat(4,minmax(0,1fr));gap:12px;margin:0 0 4px}
+.metric-card{position:relative;overflow:hidden;min-width:0;min-height:132px;padding:17px 18px 15px;border-radius:13px;background:linear-gradient(145deg,rgba(17,23,39,.88),rgba(10,14,25,.78));border:1px solid rgba(118,137,190,.13);display:flex;flex-direction:column;justify-content:space-between;transition:background .2s ease,border-color .2s ease,transform .2s ease}
+.metric-card:hover{background:linear-gradient(145deg,rgba(24,32,55,.96),rgba(13,18,32,.92));border-color:rgba(119,139,255,.38);transform:translateY(-2px)}
+.metric-primary{background:radial-gradient(ellipse at 100% 0%,rgba(83,109,255,.2),transparent 55%),linear-gradient(145deg,#171f38,#101522);border-color:rgba(112,132,255,.28)}
+.metric-primary:after{content:"";position:absolute;right:-35px;bottom:-70px;width:150px;height:150px;border:1px solid rgba(126,145,255,.13);border-radius:50%;box-shadow:0 0 0 18px rgba(126,145,255,.025),0 0 0 38px rgba(126,145,255,.018);pointer-events:none}
+.metric-topline{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.metric-label{font-size:.62rem;font-weight:800;letter-spacing:.13em;color:#8793b1;white-space:nowrap}
+.metric-symbol{font-size:1rem;color:#8495ff}
+.metric-index{font-size:.62rem;color:#536080;font-weight:700}
+.metric-value{font-family:'Manrope',sans-serif;font-size:clamp(1.12rem,1.55vw,1.7rem);font-weight:800;letter-spacing:-.055em;color:#f1f4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:9px 0 7px}
+.metric-primary .metric-value{font-size:clamp(1.3rem,1.8vw,2rem)}
+.metric-unit{font-size:.78rem;font-weight:600;letter-spacing:0;color:#9ba6c1}
+.metric-up{color:#58ddb0}.metric-down{color:#ff8294}
+.metric-foot{font-size:.7rem;color:#7e8aa6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.metric-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#7187ff;margin:0 7px 1px 0;box-shadow:0 0 9px rgba(113,135,255,.8)}
+.metric-separator{color:#4c5874;padding:0 5px}
+.section-period{font-size:.59rem;letter-spacing:.11em;color:#56617e;margin-left:8px}
+@media(max-width:1150px){.metric-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.metric-primary{grid-column:span 2}}
+@media(max-width:700px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric-primary{grid-column:span 2}.metric-card{min-height:118px;padding:14px}.metric-value{font-size:1.25rem}.metric-primary .metric-value{font-size:1.65rem}.metric-label{font-size:.58rem}}
+
 /* ---------- Dashboard layout refinement ---------- */
 .overview-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:8px 0 25px;border-bottom:1px solid #222a40;margin-bottom:22px}
 .overview-hero h1{font-size:2.35rem!important;letter-spacing:-.06em!important}
@@ -341,13 +362,40 @@ def show_overview(d):
 
     s=calc_stats(d)
     net_color = "positive" if s["net"] >= 0 else "negative"
-    st.markdown('<div class="section-kicker">PERFORMANCE SNAPSHOT</div>', unsafe_allow_html=True)
-    a,b,c,e,f=st.columns([1.25,1,1,1,1])
-    a.metric("NET PROFIT / LOSS",money(s["net"]),f"{s['n']} closed trades")
-    b.metric("WIN RATE",f"{s['wr']:.1f}%",f"{s['wins']} wins · {s['losses']} losses")
-    c.metric("PROFIT FACTOR","∞" if s["pf"]==float("inf") else f"{s['pf']:.2f}")
-    e.metric("AVERAGE TRADE",money(s["avg"]))
-    f.metric("TRADED VOLUME",f"{d.volume.sum():,.2f} lots")
+    st.markdown('<div class="section-kicker">PERFORMANCE SNAPSHOT <span class="section-period">ALL CLOSED TRADES</span></div>', unsafe_allow_html=True)
+    pf_value = "∞" if s["pf"]==float("inf") else f'{s["pf"]:.2f}'
+    volume_value = f'{d.volume.sum():,.2f}'
+    net_class = "metric-up" if s["net"] >= 0 else "metric-down"
+    metrics_html = f"""
+    <div class="metric-grid">
+      <div class="metric-card metric-primary">
+        <div class="metric-topline"><span class="metric-label">NET PROFIT / LOSS</span><span class="metric-symbol">↗</span></div>
+        <div class="metric-value {net_class}">{money(s["net"])}</div>
+        <div class="metric-foot"><span class="metric-dot"></span>{s["n"]} closed trades recorded</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-topline"><span class="metric-label">WIN RATE</span><span class="metric-index">01</span></div>
+        <div class="metric-value">{s["wr"]:.1f}<span class="metric-unit">%</span></div>
+        <div class="metric-foot">{s["wins"]} wins <span class="metric-separator">/</span> {s["losses"]} losses</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-topline"><span class="metric-label">PROFIT FACTOR</span><span class="metric-index">02</span></div>
+        <div class="metric-value">{pf_value}</div>
+        <div class="metric-foot">Gross profit vs. gross loss</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-topline"><span class="metric-label">AVERAGE TRADE</span><span class="metric-index">03</span></div>
+        <div class="metric-value">{money(s["avg"])}</div>
+        <div class="metric-foot">Average net result per trade</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-topline"><span class="metric-label">TRADED VOLUME</span><span class="metric-index">04</span></div>
+        <div class="metric-value">{volume_value}<span class="metric-unit"> lots</span></div>
+        <div class="metric-foot">Total executed volume</div>
+      </div>
+    </div>
+    """
+    st.markdown(metrics_html, unsafe_allow_html=True)
 
     st.markdown('<div class="section-kicker section-gap">PERFORMANCE CURVE</div>', unsafe_allow_html=True)
     left,right=st.columns([1.8,1],gap="large")
