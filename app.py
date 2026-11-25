@@ -19,14 +19,74 @@ st.set_page_config(page_title="Tradein | Trading Journal", page_icon="◈", layo
 AUTH_PASSWORD = st.secrets.get("auth", {}).get("password", "") if hasattr(st, "secrets") else ""
 if AUTH_PASSWORD:
     if not st.session_state.get("tradein_authenticated", False):
-        st.markdown("<h1>◈ TRADEIN</h1><p>Private Trading Journal</p>", unsafe_allow_html=True)
-        pw = st.text_input("Password", type="password")
-        if st.button("Login", type="primary"):
-            if pw == AUTH_PASSWORD:
-                st.session_state["tradein_authenticated"] = True
-                st.rerun()
-            else:
-                st.error("Password salah.")
+        st.markdown("""
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+        :root{color-scheme:dark}
+        [data-testid="stAppViewContainer"]{background:
+          radial-gradient(ellipse at 18% 18%,rgba(64,87,190,.18),transparent 36%),
+          radial-gradient(ellipse at 82% 78%,rgba(26,103,174,.12),transparent 34%),
+          #070910!important}
+        [data-testid="stHeader"]{background:transparent!important}
+        [data-testid="stMainBlockContainer"]{max-width:1120px!important;padding-top:9vh!important;padding-bottom:4rem!important}
+        html,body,[class*="css"]{font-family:'DM Sans',sans-serif}
+        .login-shell{position:relative;overflow:hidden;padding:clamp(28px,5vw,64px);border:1px solid rgba(128,148,255,.15);border-radius:26px;background:linear-gradient(135deg,rgba(16,22,40,.94),rgba(9,13,24,.96));box-shadow:0 28px 100px rgba(0,0,0,.42)}
+        .login-shell:before{content:"";position:absolute;inset:0;background:linear-gradient(rgba(126,147,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(126,147,255,.035) 1px,transparent 1px);background-size:42px 42px;mask-image:linear-gradient(120deg,black,transparent 78%);pointer-events:none}
+        .login-brand,.login-access{position:relative;z-index:1}
+        .login-logo{width:112px;height:112px;margin-bottom:28px;filter:drop-shadow(0 12px 28px rgba(83,109,255,.25))}
+        .login-eyebrow{font-size:.68rem;letter-spacing:.24em;font-weight:800;color:#8294ff;margin-bottom:16px}
+        .login-title{font-family:'Manrope',sans-serif;font-size:clamp(3rem,6vw,5.3rem);line-height:.94;font-weight:850;letter-spacing:-.085em;color:#f4f6ff;margin:0}
+        .login-title span{color:#8294ff}
+        .login-tagline{font-size:1rem;line-height:1.7;color:#9ba8c2;max-width:390px;margin-top:22px}
+        .login-rule{width:52px;height:3px;border-radius:9px;background:linear-gradient(90deg,#536dff,#8da0ff);margin:30px 0 20px}
+        .login-foot{font-size:.65rem;letter-spacing:.16em;color:#66738f;font-weight:700}
+        .login-access{padding:28px;border:1px solid rgba(135,151,203,.15);border-radius:18px;background:rgba(7,11,21,.64);margin-top:22px}
+        .access-kicker{font-size:.62rem;letter-spacing:.2em;color:#8294ff;font-weight:800;margin-bottom:10px}
+        .access-title{font-family:'Manrope',sans-serif;font-size:1.65rem;font-weight:800;letter-spacing:-.05em;color:#f1f4ff;margin:0 0 8px}
+        .access-copy{font-size:.84rem;line-height:1.6;color:#8996b0;margin-bottom:22px}
+        [data-testid="stTextInput"] label{color:#9ca9c2!important;font-size:.67rem!important;letter-spacing:.12em!important;font-weight:800!important}
+        [data-testid="stTextInput"] input{background:#0b1120!important;border:1px solid #293653!important;border-radius:10px!important;color:#f2f5ff!important;min-height:3.1rem!important}
+        [data-testid="stTextInput"] input:focus{border-color:#7185ff!important;box-shadow:0 0 0 1px #7185ff!important}
+        .stButton>button{width:100%;min-height:3.05rem;border-radius:10px!important;border:1px solid #647bff!important;background:linear-gradient(105deg,#4058e8,#637aff)!important;color:white!important;font-weight:800!important;letter-spacing:.02em!important;box-shadow:0 8px 24px rgba(69,91,235,.2)!important}
+        .stButton>button:hover{border-color:#9aa8ff!important;filter:brightness(1.08)}
+        [data-testid="stAlert"]{border-radius:10px}
+        @media(max-width:700px){[data-testid="stMainBlockContainer"]{padding-top:2rem!important}.login-shell{padding:26px 20px}.login-logo{width:82px;height:82px;margin-bottom:20px}.login-access{padding:20px;margin-top:30px}}
+        </style>
+        """, unsafe_allow_html=True)
+        left, right = st.columns([1.08, .92], gap="large", vertical_alignment="center")
+        with left:
+            st.markdown("""
+            <div class="login-shell">
+              <div class="login-brand">
+                <svg class="login-logo" viewBox="0 0 100 100" role="img" aria-label="TRADEIN triangle logo">
+                  <path d="M50 7 L94 88 H6 Z" fill="none" stroke="#8294ff" stroke-width="6" stroke-linejoin="round"/>
+                  <path d="M50 34 L68 70 H32 Z" fill="#536dff" opacity=".88"/>
+                  <path d="M50 48 L58 64 H42 Z" fill="#a9b6ff"/>
+                </svg>
+                <div class="login-eyebrow">PRIVATE TRADING WORKSPACE</div>
+                <h1 class="login-title">TRADEIN<span>.</span></h1>
+                <div class="login-tagline">A clearer view of every trade. Built around discipline, consistency, and better decisions.</div>
+                <div class="login-rule"></div>
+                <div class="login-foot">YOUR PERSONAL TRADING JOURNAL&nbsp;&nbsp; / &nbsp;&nbsp; V2.0</div>
+              </div>
+            </div>
+            """, unsafe_allow_html=True)
+        with right:
+            st.markdown("""
+            <div class="login-access">
+              <div class="access-kicker">WORKSPACE ACCESS</div>
+              <div class="access-title">Welcome back.</div>
+              <div class="access-copy">Enter your private access key to continue to your trading workspace.</div>
+            </div>
+            """, unsafe_allow_html=True)
+            pw = st.text_input("ACCESS PASSWORD", type="password", placeholder="Enter your password")
+            if st.button("Unlock workspace", type="primary", use_container_width=True):
+                if pw == AUTH_PASSWORD:
+                    st.session_state["tradein_authenticated"] = True
+                    st.rerun()
+                else:
+                    st.error("Password salah. Coba lagi.")
+            st.markdown('<div class="login-foot" style="text-align:center;margin-top:22px">SECURE · PRIVATE · PERSONAL</div>', unsafe_allow_html=True)
         st.stop()
 
 
