@@ -67,6 +67,17 @@ section[data-testid="stSidebar"] .stRadio label:hover { background:#172337; }
 div[data-testid="stTabs"] button { color:#9fb0c5; }
 div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-bottom-color:#43d9a6; }
 
+/* ---------- Risk metrics and expanded overview grid ---------- */
+.metric-grid{grid-template-columns:1.3fr repeat(5,minmax(0,1fr))}
+.metric-primary{grid-column:auto}
+.risk-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:11px;margin:0 0 10px}
+.risk-card{min-width:0;padding:16px 15px 14px;border-radius:12px;background:linear-gradient(145deg,rgba(18,24,40,.82),rgba(11,15,26,.72));border:1px solid rgba(116,133,190,.15)}
+.risk-label{font-size:.59rem;font-weight:800;letter-spacing:.11em;color:#8793b1;line-height:1.4;min-height:28px}
+.risk-value{font-family:'Manrope',sans-serif;font-size:clamp(1.1rem,1.5vw,1.55rem);font-weight:800;letter-spacing:-.045em;color:#f0f3ff;margin:8px 0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.risk-note{font-size:.65rem;color:#75819d;line-height:1.4}
+@media(max-width:1150px){.metric-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.metric-primary{grid-column:span 1}.risk-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.metric-primary{grid-column:span 2}.risk-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.risk-card{padding:13px}.risk-value{font-size:1.2rem}}
+
 /* ---------- Workspace navigation redesign ---------- */
 [data-testid="stSidebar"]{border-right:1px solid rgba(116,133,190,.12)!important;background:linear-gradient(180deg,#0b1020 0%,#090c15 55%,#080a11 100%)!important}
 [data-testid="stSidebar"]>div:first-child{padding-top:1.35rem}
@@ -341,11 +352,11 @@ with st.sidebar:
     st.markdown('<div class="sidebar-section-label">WORKSPACE</div>', unsafe_allow_html=True)
     menu = [
         "Overview", "Calendar", "Trade Journal", "Add Trade",
-        "Import MT5", "Analytics", "Playbook", "Backup & Settings"
+        "Import MT5", "Analytics", "Reports", "Playbook", "Backup & Settings"
     ]
     menu_icons = {
         "Overview":"◫", "Calendar":"▦", "Trade Journal":"≡", "Add Trade":"＋",
-        "Import MT5":"⇧", "Analytics":"⌁", "Playbook":"◇", "Backup & Settings":"⚙"
+        "Import MT5":"⇧", "Analytics":"⌁", "Reports":"▤", "Playbook":"◇", "Backup & Settings":"⚙"
     }
     page = st.radio("Workspace navigation", menu, format_func=lambda item: f'{menu_icons[item]}   {item}', label_visibility="collapsed")
     st.markdown(
@@ -373,6 +384,65 @@ def calc_stats(d):
     pf=gp/gl if gl else (float("inf") if gp else 0)
     return {"n":n,"wins":wins,"losses":losses,"net":float(d.pnl.sum()),"wr":wins/n*100 if n else 0,
             "pf":pf,"avg":float(d.pnl.mean()) if n else 0,"gp":gp,"gl":gl}
+
+def calculate_risk_metrics(d):
+    """Trade-based risk statistics from realized P/L; no account balance is assumed."""
+    if d.empty or "pnl" not in d:
+        return {"max_dd_pct":None,"current_dd_pct":None,"max_dd_money":0.0,
+                "sharpe":None,"sortino":None,"equity":pd.Series(dtype=float),
+                "drawdown":pd.Series(dtype=float)}
+    ordered=d.dropna(subset=["pnl"]).copy()
+    if "trade_dt" in ordered.columns:
+        ordered=ordered.sort_values(["trade_dt"],kind="stable")
+    pnl=pd.to_numeric(ordered["pnl"],errors="coerce").dropna().astype(float)
+    if pnl.empty:
+        return {"max_dd_pct":None,"current_dd_pct":None,"max_dd_money":0.0,
+                "sharpe":None,"sortino":None,"equity":pd.Series(dtype=float),
+                "drawdown":pd.Series(dtype=float)}
+    equity=pnl.cumsum()
+    peaks=equity.cummax().clip(lower=0)
+    drawdown=(peaks-equity).clip(lower=0)
+    valid_peak=peaks.where(peaks>0)
+    dd_pct=(drawdown/valid_peak)*100
+    max_dd_pct=float(dd_pct.max()) if dd_pct.notna().any() else None
+    current_dd_pct=float(dd_pct.iloc[-1]) if pd.notna(dd_pct.iloc[-1]) else None
+    max_dd_money=float(drawdown.max()) if not drawdown.empty else 0.0
+    std=float(pnl.std(ddof=1)) if len(pnl)>1 else 0.0
+    sharpe=float(pnl.mean()/std) if std>0 else None
+    downside=(pnl.clip(upper=0).pow(2).mean())**0.5
+    sortino=float(pnl.mean()/downside) if downside>0 else None
+    return {"max_dd_pct":max_dd_pct,"current_dd_pct":current_dd_pct,
+            "max_dd_money":max_dd_money,"sharpe":sharpe,"sortino":sortino,
+            "equity":equity,"drawdown":drawdown}
+
+
+def show_risk_section(d, compact=False):
+    risk=calculate_risk_metrics(d)
+    def pct(v): return f"{v:.2f}%" if v is not None else "—"
+    def ratio(v): return f"{v:.2f}" if v is not None else "—"
+    st.markdown('<div class="section-kicker section-gap">RISK METRICS</div>',unsafe_allow_html=True)
+    metrics=[
+        ("MAX DRAWDOWN %",pct(risk["max_dd_pct"]),"Largest peak-to-trough decline"),
+        ("CURRENT DRAWDOWN %",pct(risk["current_dd_pct"]),"Distance from latest equity peak"),
+        ("MAX EQUITY DRAWDOWN",money(risk["max_dd_money"]),"Largest realized P/L decline"),
+        ("SHARPE RATIO",ratio(risk["sharpe"]),"Per-trade · non-annualized"),
+        ("SORTINO RATIO",ratio(risk["sortino"]),"Per-trade · downside deviation")
+    ]
+    cards='<div class="risk-grid">'+''.join(
+        f'<div class="risk-card"><div class="risk-label">{label}</div><div class="risk-value">{value}</div><div class="risk-note">{note}</div></div>'
+        for label,value,note in metrics
+    )+'</div>'
+    st.markdown(cards,unsafe_allow_html=True)
+    st.caption("Drawdown % uses the peak of cumulative realized P/L, not account balance. Sharpe and Sortino use trade P/L observations, risk-free/target return = 0, and are not annualized. Accurate account-equity drawdown requires starting balance and deposit/withdrawal history.")
+    if not compact and not risk["drawdown"].empty:
+        fig=go.Figure()
+        fig.add_trace(go.Scatter(x=list(range(1,len(risk["drawdown"])+1)),y=risk["drawdown"],
+            mode="lines",line=dict(color="#ff7184",width=2.2),fill="tozeroy",
+            fillcolor="rgba(255,113,132,.10)",name="Drawdown",
+            hovertemplate="Trade #%{x}<br>Drawdown: $%{y:,.2f}<extra></extra>"))
+        fig.update_layout(showlegend=False,xaxis_title="Closed trade",yaxis_title="Drawdown")
+        st.plotly_chart(chart_layout(fig,250),use_container_width=True,config={"displayModeBar":False})
+
 
 def show_overview(d):
     d = performance_trades(d)
@@ -420,7 +490,12 @@ def show_overview(d):
         <div class="metric-foot">Average net result per trade</div>
       </div>
       <div class="metric-card">
-        <div class="metric-topline"><span class="metric-label">TRADED VOLUME</span><span class="metric-index">04</span></div>
+        <div class="metric-topline"><span class="metric-label">TOTAL TRADES</span><span class="metric-index">04</span></div>
+        <div class="metric-value">{s["n"]}</div>
+        <div class="metric-foot">Closed positions analyzed</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-topline"><span class="metric-label">TRADED VOLUME</span><span class="metric-index">05</span></div>
         <div class="metric-value">{volume_value}<span class="metric-unit"> lots</span></div>
         <div class="metric-foot">Total executed volume</div>
       </div>
@@ -753,8 +828,9 @@ def show_analytics(d):
     page_header("Analytics","Understand what drives your results — and what holds you back.")
     d = performance_trades(d)
     if d.empty: st.info("Import or add trades to unlock analytics."); return
-    tabs=st.tabs(["Performance","Execution","Psychology","Risk & Reward"])
+    tabs=st.tabs(["Performance","Execution","Psychology","Risk"])
     with tabs[0]:
+        show_risk_section(d,compact=True)
         a,b=st.columns(2)
         with a:
             p=d.groupby("symbol",as_index=False).agg(net_pnl=("pnl","sum"),trades=("id","count"),avg_pnl=("pnl","mean"))
@@ -793,6 +869,7 @@ def show_analytics(d):
         discipline["Plan status"]=discipline.followed_plan.map({1:"Followed plan",0:"Did not follow"})
         st.dataframe(discipline[["Plan status","trades","net_pnl","avg_pnl"]],use_container_width=True,hide_index=True)
     with tabs[3]:
+        show_risk_section(d,compact=False)
         st.markdown("### Position sizing & outcomes")
         a,b,c=st.columns(3)
         a.metric("Average lot",f"{d.volume.mean():.2f}")
@@ -800,6 +877,31 @@ def show_analytics(d):
         c.metric("Average winner",money(d.loc[d.pnl>0,"pnl"].mean()) if (d.pnl>0).any() else "—")
         st.caption("R-multiple, MAE/MFE, and planned risk need risk-at-entry / tick-value data. They are not inferred from incomplete MT5 reports.")
         st.dataframe(d[["symbol","direction","volume","pnl"]],use_container_width=True,hide_index=True)
+
+def show_reports(d):
+    page_header("Reports","A consolidated trading report with performance, risk, and exportable records.")
+    d=performance_trades(d)
+    if d.empty:
+        st.info("Belum ada trade valid untuk dibuatkan report.")
+        return
+    stats=calc_stats(d)
+    risk=calculate_risk_metrics(d)
+    st.markdown('<div class="section-kicker">REPORT SUMMARY</div>',unsafe_allow_html=True)
+    a,b,c,dcol=st.columns(4)
+    a.metric("TOTAL TRADES",stats["n"])
+    b.metric("NET P/L",money(stats["net"]))
+    c.metric("WIN RATE",f'{stats["wr"]:.1f}%')
+    dcol.metric("PROFIT FACTOR","∞" if stats["pf"]==float("inf") else f'{stats["pf"]:.2f}')
+    show_risk_section(d,compact=True)
+    st.markdown('<div class="section-kicker section-gap">TRADE PERFORMANCE REPORT</div>',unsafe_allow_html=True)
+    report=d.copy()
+    report_cols=[c for c in ["trade_dt","symbol","direction","volume","pnl","strategy","session","followed_plan"] if c in report.columns]
+    report=report[report_cols].rename(columns={"trade_dt":"Trade date","symbol":"Instrument","direction":"Side","volume":"Lots","pnl":"Net P/L","strategy":"Strategy","session":"Session","followed_plan":"Followed plan"})
+    st.dataframe(report,use_container_width=True,hide_index=True)
+    st.download_button("Download performance report CSV",report.to_csv(index=False).encode("utf-8-sig"),
+        "tradein_performance_report.csv","text/csv",type="primary")
+    st.caption(f"Report includes {len(report)} valid closed trades. Archived malformed MT5 rows remain stored and are excluded from performance calculations.")
+
 
 def show_playbook(d):
     page_header("Playbook","A review space for strategies, setups, and execution discipline.")
@@ -851,5 +953,6 @@ elif page=="Trade Journal": show_journal(df)
 elif page=="Add Trade": show_add()
 elif page=="Import MT5": show_import()
 elif page=="Analytics": show_analytics(df)
+elif page=="Reports": show_reports(df)
 elif page=="Playbook": show_playbook(df)
 elif page=="Backup & Settings": show_backup(df)
