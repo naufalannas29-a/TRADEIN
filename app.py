@@ -67,6 +67,23 @@ section[data-testid="stSidebar"] .stRadio label:hover { background:#172337; }
 div[data-testid="stTabs"] button { color:#9fb0c5; }
 div[data-testid="stTabs"] button[aria-selected="true"] { color:#43d9a6; border-bottom-color:#43d9a6; }
 
+/* ---------- Dashboard layout refinement ---------- */
+.overview-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;padding:8px 0 25px;border-bottom:1px solid #222a40;margin-bottom:22px}
+.overview-hero h1{font-size:2.35rem!important;letter-spacing:-.06em!important}
+.hero-meta{white-space:nowrap;color:#9aa6c2;font-size:.68rem;font-weight:700;letter-spacing:.1em;padding:10px 13px;border:1px solid #293451;border-radius:30px;background:rgba(17,23,40,.72)}
+.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#7187ff;box-shadow:0 0 12px #7187ff;margin:0 7px 1px 0}
+.hero-divider{color:#4c5876;padding:0 7px}
+.section-kicker{font-size:.67rem;font-weight:800;letter-spacing:.16em;color:#7888b4;margin:5px 0 12px}
+.section-gap{margin-top:24px}
+.chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:2px 0 3px}
+.chart-heading h3{margin:0 0 3px!important}
+.chart-chip{font-size:.62rem;letter-spacing:.12em;font-weight:800;color:#9eacff;border:1px solid #35416d;background:rgba(83,109,255,.1);padding:6px 9px;border-radius:20px;white-space:nowrap}
+div[data-testid="stMetric"]{background:linear-gradient(145deg,#151c30 0%,#101522 100%)!important;border:1px solid #293451!important;border-radius:16px!important}
+div[data-testid="stMetricLabel"]{font-size:.66rem!important;letter-spacing:.12em!important}
+div[data-testid="stMetricValue"]{font-size:clamp(1.15rem,1.65vw,1.75rem)!important}
+div[data-testid="stDataFrame"]{background:#101522!important}
+@media(max-width:900px){.overview-hero{align-items:flex-start;flex-direction:column}.hero-meta{white-space:normal}.overview-hero h1{font-size:1.8rem!important}}
+
 /* ---------- TRADEIN UI refresh: electric blue / premium trading desk ---------- */
 :root {
   --bg:#070910; --panel:#101421; --panel2:#151c2d; --line:#252d43;
@@ -306,57 +323,91 @@ def calc_stats(d):
             "pf":pf,"avg":float(d.pnl.mean()) if n else 0,"gp":gp,"gl":gl}
 
 def show_overview(d):
-    page_header("Overview", "A clear view of your trading performance.")
     d = performance_trades(d)
+    today_label = date.today().strftime("%A, %d %B %Y")
+    st.markdown(
+        f'<div class="overview-hero"><div><div class="eyebrow">YOUR TRADING WORKSPACE</div>'
+        f'<h1 style="margin:5px 0 3px">Performance overview</h1>'
+        f'<div class="small-muted">A focused view of your execution, consistency, and results.</div></div>'
+        f'<div class="hero-meta"><span class="live-dot"></span> PRIVATE JOURNAL <span class="hero-divider">/</span> {today_label}</div></div>',
+        unsafe_allow_html=True
+    )
     if d.empty:
         st.info("Belum ada trade. Tambahkan posisi manual atau import report MT5 untuk mulai.")
         c1,c2=st.columns(2)
         with c1: st.markdown('<div class="panel"><h3>01 · Add your first trade</h3><p class="small-muted">Catat entry, exit, risk, strategi, dan kondisi psikologi.</p></div>',unsafe_allow_html=True)
         with c2: st.markdown('<div class="panel"><h3>02 · Import MT5 history</h3><p class="small-muted">Upload report XLSX dari MT5 dan cocokkan hasil import.</p></div>',unsafe_allow_html=True)
         return
+
     s=calc_stats(d)
-    a,b,c,e,f=st.columns(5)
-    a.metric("NET P/L",money(s["net"]),f"{s['n']} closed trades")
+    net_color = "positive" if s["net"] >= 0 else "negative"
+    st.markdown('<div class="section-kicker">PERFORMANCE SNAPSHOT</div>', unsafe_allow_html=True)
+    a,b,c,e,f=st.columns([1.25,1,1,1,1])
+    a.metric("NET PROFIT / LOSS",money(s["net"]),f"{s['n']} closed trades")
     b.metric("WIN RATE",f"{s['wr']:.1f}%",f"{s['wins']} wins · {s['losses']} losses")
     c.metric("PROFIT FACTOR","∞" if s["pf"]==float("inf") else f"{s['pf']:.2f}")
-    e.metric("AVG. TRADE",money(s["avg"]))
-    f.metric("TOTAL VOLUME",f"{d.volume.sum():,.2f} lots")
-    st.markdown("")
-    left,right=st.columns([1.7,1])
+    e.metric("AVERAGE TRADE",money(s["avg"]))
+    f.metric("TRADED VOLUME",f"{d.volume.sum():,.2f} lots")
+
+    st.markdown('<div class="section-kicker section-gap">PERFORMANCE CURVE</div>', unsafe_allow_html=True)
+    left,right=st.columns([1.8,1],gap="large")
     with left:
-        st.markdown("### Equity curve")
         curve=d.dropna(subset=["trade_dt"]).sort_values("trade_dt").copy()
         curve["equity"]=curve.pnl.cumsum()
+        st.markdown('<div class="chart-heading"><div><h3>Equity development</h3><span class="small-muted">Cumulative realized P/L across closed trades</span></div><span class="chart-chip">CUMULATIVE</span></div>',unsafe_allow_html=True)
         if not curve.empty:
             fig=go.Figure()
-            fig.add_trace(go.Scatter(x=curve.trade_dt,y=curve.equity,mode="lines",line=dict(color="#35d39b",width=2.5),fill="tozeroy",fillcolor="rgba(53,211,155,.08)",name="Cumulative P/L"))
-            fig.add_hline(y=0,line_dash="dot",line_color="#506078")
-            st.plotly_chart(chart_layout(fig,330),use_container_width=True)
+            fig.add_trace(go.Scatter(
+                x=curve.trade_dt,y=curve.equity,mode="lines",
+                line=dict(color="#7187ff",width=3,shape="spline"),
+                fill="tozeroy",fillcolor="rgba(83,109,255,.13)",
+                hovertemplate="%{x|%d %b %Y}<br><b>$%{y:,.2f}</b><extra></extra>",
+                name="Cumulative P/L"
+            ))
+            fig.add_hline(y=0,line_dash="dot",line_color="#46516d",line_width=1)
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(chart_layout(fig,340),use_container_width=True,config={"displayModeBar":False})
+        else:
+            st.caption("Trade date belum tersedia untuk membentuk equity curve.")
     with right:
-        st.markdown("### Outcomes")
-        outcome=pd.DataFrame({"Outcome":["Win","Loss","Breakeven"],"Trades":[s["wins"],s["losses"],s["n"]-s["wins"]-s["losses"]]})
-        fig=px.pie(outcome,names="Outcome",values="Trades",hole=.72,color="Outcome",color_discrete_map={"Win":"#35d39b","Loss":"#ff7184","Breakeven":"#667991"})
-        fig.update_traces(textinfo="percent",textfont_color="#eaf1fa")
-        st.plotly_chart(chart_layout(fig,330),use_container_width=True)
-    l,r=st.columns(2)
+        st.markdown('<div class="chart-heading"><div><h3>Trade outcomes</h3><span class="small-muted">Distribution by result</span></div></div>',unsafe_allow_html=True)
+        outcome=pd.DataFrame({"Outcome":["Wins","Losses","Breakeven"],"Trades":[s["wins"],s["losses"],s["n"]-s["wins"]-s["losses"]]})
+        fig=px.pie(outcome,names="Outcome",values="Trades",hole=.76,color="Outcome",
+            color_discrete_map={"Wins":"#7187ff","Losses":"#ff7184","Breakeven":"#56627b"})
+        fig.update_traces(textinfo="percent",textfont_color="#eaf1fa",hole=.76,
+            marker=dict(line=dict(color="#111625",width=4)),
+            hovertemplate="%{label}: %{value} trades<extra></extra>")
+        fig.update_layout(showlegend=True,legend=dict(orientation="h",y=-.04,x=.0,font=dict(size=10)))
+        st.plotly_chart(chart_layout(fig,340),use_container_width=True,config={"displayModeBar":False})
+
+    st.markdown('<div class="section-kicker section-gap">MARKET & ACTIVITY</div>', unsafe_allow_html=True)
+    l,r=st.columns([1,1.35],gap="large")
     with l:
-        st.markdown("### Performance by pair")
+        st.markdown('<div class="chart-heading"><div><h3>Performance by pair</h3><span class="small-muted">Net P/L grouped by instrument</span></div></div>',unsafe_allow_html=True)
         pair=d.groupby("symbol",as_index=False).pnl.sum().sort_values("pnl")
-        fig=px.bar(pair,x="pnl",y="symbol",orientation="h",color="pnl",color_continuous_scale=["#ff7184","#26364b","#35d39b"])
-        st.plotly_chart(chart_layout(fig,270),use_container_width=True)
+        fig=px.bar(pair,x="pnl",y="symbol",orientation="h",color="pnl",
+            color_continuous_scale=["#ff7184","#303b62","#7187ff"])
+        fig.update_layout(coloraxis_showscale=False)
+        fig.update_traces(marker_line_width=0,hovertemplate="%{y}<br><b>$%{x:,.2f}</b><extra></extra>")
+        st.plotly_chart(chart_layout(fig,300),use_container_width=True,config={"displayModeBar":False})
     with r:
-        st.markdown("### Recent activity")
+        st.markdown('<div class="chart-heading"><div><h3>Recent trades</h3><span class="small-muted">Latest recorded positions</span></div><span class="chart-chip">LATEST 7</span></div>',unsafe_allow_html=True)
         recent=d[["symbol","direction","close_time","volume","pnl"]].head(7).copy()
-        recent["pnl"]=recent.pnl.map(money)
-        st.dataframe(recent,use_container_width=True,hide_index=True)
-    st.markdown("### Quick insights")
-    best=d.groupby("symbol").pnl.sum().idxmax() if d.symbol.nunique() else "—"
-    worst=d.groupby("symbol").pnl.sum().idxmin() if d.symbol.nunique() else "—"
-    x,y,z=st.columns(3)
-    x.metric("Best pair",best,f"{money(d.groupby('symbol').pnl.sum().max())} net")
-    y.metric("Weakest pair",worst,f"{money(d.groupby('symbol').pnl.sum().min())} net")
+        recent.columns=["Instrument","Side","Closed at","Lots","Net P/L"]
+        recent["Net P/L"]=recent["Net P/L"].map(money)
+        recent["Lots"]=recent["Lots"].map(lambda x:f"{float(x):.2f}")
+        recent["Side"]=recent["Side"].fillna("—").astype(str).str.upper()
+        st.dataframe(recent,use_container_width=True,hide_index=True,height=300)
+
+    st.markdown('<div class="section-kicker section-gap">EDGE & CONSISTENCY</div>', unsafe_allow_html=True)
+    best_by_pair=d.groupby("symbol").pnl.sum()
+    best=best_by_pair.idxmax() if not best_by_pair.empty else "—"
+    worst=best_by_pair.idxmin() if not best_by_pair.empty else "—"
     discipline=d.groupby("followed_plan").pnl.mean()
-    z.metric("Avg. P/L · followed plan",money(d.loc[d.followed_plan==1,"pnl"].mean()) if (d.followed_plan==1).any() else "—")
+    x,y,z=st.columns(3)
+    x.metric("STRONGEST INSTRUMENT",best,money(best_by_pair.max())+" net" if not best_by_pair.empty else None)
+    y.metric("WEAKEST INSTRUMENT",worst,money(best_by_pair.min())+" net" if not best_by_pair.empty else None)
+    z.metric("AVG. P/L · FOLLOWED PLAN",money(d.loc[d.followed_plan==1,"pnl"].mean()) if (d.followed_plan==1).any() else "—")
 
 def show_calendar(d):
     page_header("Trading Calendar","Daily realized P/L. Select a month to review your consistency.")
