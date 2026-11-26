@@ -410,7 +410,54 @@ def init_db():
             """).fetchone()[0]
             if not duplicate_tickets:
                 con.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_ticket_unique ON trades(ticket) WHERE ticket IS NOT NULL AND ticket <> ''")
+# Risk settings are kept separately from trade history. This is additive and safe
+# for the existing PostgreSQL and SQLite databases.
+with db() as con:
+    balance_type = "DOUBLE PRECISION" if CLOUD_DB else "REAL"
+    con.execute(f"""
+        CREATE TABLE IF NOT EXISTS risk_settings (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            initial_balance {balance_type} NOT NULL DEFAULT 0,
+            weekly_limit_pct {balance_type} NOT NULL DEFAULT 3,
+            monthly_limit_pct {balance_type} NOT NULL DEFAULT 5,
+            warning_pct {balance_type} NOT NULL DEFAULT 80
+        )
+    """)
+    con.execute("""
+        INSERT INTO risk_settings (id, initial_balance, weekly_limit_pct, monthly_limit_pct, warning_pct)
+        VALUES (1, 0, 3, 5, 80)
+        ON CONFLICT (id) DO NOTHING
+    """)
+
 init_db()
+
+def get_risk_settings():
+    with db() as con:
+        row=con.execute("SELECT initial_balance, weekly_limit_pct, monthly_limit_pct, warning_pct FROM risk_settings WHERE id=1").fetchone()
+    if not row:
+        return {"initial_balance":0.0,"weekly_limit_pct":3.0,"monthly_limit_pct":5.0,"warning_pct":80.0}
+    return {"initial_balance":float(row[0] or 0),"weekly_limit_pct":float(row[1] or 3),
+            "monthly_limit_pct":float(row[2] or 5),"warning_pct":float(row[3] or 80)}
+
+def save_risk_settings(initial_balance, weekly_limit_pct=3.0, monthly_limit_pct=5.0, warning_pct=80.0):
+    with db() as con:
+        con.execute("""
+            INSERT INTO risk_settings (id, initial_balance, weekly_limit_pct, monthly_limit_pct, warning_pct)
+            VALUES (1, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                initial_balance=EXCLUDED.initial_balance,
+                weekly_limit_pct=EXCLUDED.weekly_limit_pct,
+                monthly_limit_pct=EXCLUDED.monthly_limit_pct,
+                warning_pct=EXCLUDED.warning_pct
+        """ if CLOUD_DB else """
+            INSERT INTO risk_settings (id, initial_balance, weekly_limit_pct, monthly_limit_pct, warning_pct)
+            VALUES (1, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                initial_balance=excluded.initial_balance,
+                weekly_limit_pct=excluded.weekly_limit_pct,
+                monthly_limit_pct=excluded.monthly_limit_pct,
+                warning_pct=excluded.warning_pct
+        """,(float(initial_balance),float(weekly_limit_pct),float(monthly_limit_pct),float(warning_pct)))
 
 def load_trades():
     with db() as con:
@@ -552,46 +599,108 @@ def calc_stats(d):
     return {"n":n,"wins":wins,"losses":losses,"net":float(d.pnl.sum()),"wr":wins/n*100 if n else 0,
             "pf":pf,"avg":float(d.pnl.mean()) if n else 0,"gp":gp,"gl":gl}
 
-def calculate_risk_metrics(d):
-    """Trade-based risk statistics from realized P/L; no account balance is assumed."""
-    if d.empty or "pnl" not in d:
-        return {"max_dd_pct":None,"current_dd_pct":None,"max_dd_money":0.0,
-                "sharpe":None,"sortino":None,"equity":pd.Series(dtype=float),
-                "drawdown":pd.Series(dtype=float)}
-    ordered=d.dropna(subset=["pnl"]).copy()
-    if "trade_dt" in ordered.columns:
+def calculate_risk_metrics(d, initial_balance=0.0):
+    """Drawdown is measured against the fixed initial balance, never a rolling peak."""
+    empty={"max_dd_pct":None,"current_dd_pct":None,"max_dd_money":0.0,
+           "sharpe":None,"sortino":None,"equity":pd.Series(dtype=float),
+           "drawdown":pd.Series(dtype=float)}
+    if initial_balance <= 0:
+        return empty
+    ordered=d.dropna(subset=["pnl"]).copy() if not d.empty and "pnl" in d else pd.DataFrame()
+    if not ordered.empty and "trade_dt" in ordered.columns:
         ordered=ordered.sort_values(["trade_dt"],kind="stable")
-    pnl=pd.to_numeric(ordered["pnl"],errors="coerce").dropna().astype(float)
-    if pnl.empty:
-        return {"max_dd_pct":None,"current_dd_pct":None,"max_dd_money":0.0,
-                "sharpe":None,"sortino":None,"equity":pd.Series(dtype=float),
-                "drawdown":pd.Series(dtype=float)}
-    equity=pnl.cumsum()
-    peaks=equity.cummax().clip(lower=0)
-    drawdown=(peaks-equity).clip(lower=0)
-    valid_peak=peaks.where(peaks>0)
-    dd_pct=(drawdown/valid_peak)*100
-    max_dd_pct=float(dd_pct.max()) if dd_pct.notna().any() else None
-    current_dd_pct=float(dd_pct.iloc[-1]) if pd.notna(dd_pct.iloc[-1]) else None
+    pnl=pd.to_numeric(ordered["pnl"],errors="coerce").dropna().astype(float) if not ordered.empty else pd.Series(dtype=float)
+    equity=float(initial_balance)+pnl.cumsum()
+    drawdown=(float(initial_balance)-equity).clip(lower=0)
+    dd_pct=(drawdown/float(initial_balance))*100
+    max_dd_pct=float(dd_pct.max()) if not dd_pct.empty else 0.0
+    current_dd_pct=float(dd_pct.iloc[-1]) if not dd_pct.empty else 0.0
     max_dd_money=float(drawdown.max()) if not drawdown.empty else 0.0
     std=float(pnl.std(ddof=1)) if len(pnl)>1 else 0.0
     sharpe=float(pnl.mean()/std) if std>0 else None
-    downside=(pnl.clip(upper=0).pow(2).mean())**0.5
+    downside=(pnl.clip(upper=0).pow(2).mean())**0.5 if not pnl.empty else 0.0
     sortino=float(pnl.mean()/downside) if downside>0 else None
     return {"max_dd_pct":max_dd_pct,"current_dd_pct":current_dd_pct,
             "max_dd_money":max_dd_money,"sharpe":sharpe,"sortino":sortino,
             "equity":equity,"drawdown":drawdown}
 
 
+def calculate_period_drawdown(d, initial_balance, period_start, today=None):
+    """Period DD versus balance at the start of the week/month, using closed trades."""
+    today=today or date.today()
+    if initial_balance <= 0:
+        return {"pct":None,"amount":0.0,"baseline":None,"current":None}
+    trades=d.dropna(subset=["trade_dt"]).copy() if not d.empty and "trade_dt" in d.columns else pd.DataFrame()
+    if not trades.empty:
+        trades["trade_day"]=pd.to_datetime(trades["trade_dt"],errors="coerce").dt.date
+        trades=trades.dropna(subset=["trade_day"])
+        pnl=pd.to_numeric(trades["pnl"],errors="coerce").fillna(0)
+        before=float(pnl[trades["trade_day"] < period_start].sum())
+        through=float(pnl[trades["trade_day"] <= today].sum())
+    else:
+        before=through=0.0
+    baseline=float(initial_balance)+before
+    current=float(initial_balance)+through
+    loss=max(0.0,baseline-current)
+    pct=(loss/baseline*100) if baseline>0 else None
+    return {"pct":pct,"amount":loss,"baseline":baseline,"current":current}
+
+
+def risk_level(value, limit, warning_pct):
+    if value is None: return "unset"
+    if value >= limit: return "critical"
+    if value >= limit*(warning_pct/100.0): return "warning"
+    return "normal"
+
+
+def show_risk_guard(d, compact=False):
+    settings=get_risk_settings()
+    initial=settings["initial_balance"]
+    if initial <= 0:
+        st.info("Set your Initial Balance in Backup & Settings to activate Risk Guard.")
+        return
+    today=date.today()
+    week_start=today-timedelta(days=today.weekday())
+    month_start=today.replace(day=1)
+    weekly=calculate_period_drawdown(d,initial,week_start,today)
+    monthly=calculate_period_drawdown(d,initial,month_start,today)
+    w_limit=settings["weekly_limit_pct"]; m_limit=settings["monthly_limit_pct"]
+    warning=settings["warning_pct"]
+    w_level=risk_level(weekly["pct"],w_limit,warning)
+    m_level=risk_level(monthly["pct"],m_limit,warning)
+    critical=w_level=="critical" or m_level=="critical"
+    warning_hit=w_level=="warning" or m_level=="warning"
+    st.markdown('<div class="section-kicker section-gap">TRADEIN RISK GUARD</div>',unsafe_allow_html=True)
+    if critical:
+        st.error("TRADING LIMIT REACHED — STOP TRADING. Your weekly or monthly drawdown limit has been hit.")
+    elif warning_hit:
+        st.warning("RISK WARNING — You are approaching your prop-firm drawdown limit. Consider stopping for the period.")
+    else:
+        st.success("RISK STATUS NORMAL — Both weekly and monthly drawdown are below the warning threshold.")
+    a,b=st.columns(2)
+    for col,label,result,limit,level in [
+        (a,"WEEKLY DRAWDOWN",weekly,w_limit,w_level),
+        (b,"MONTHLY DRAWDOWN",monthly,m_limit,m_level)
+    ]:
+        with col:
+            st.metric(label,f'{result["pct"]:.2f}%' if result["pct"] is not None else "—",
+                      f'Limit {limit:.2f}% · {level.upper()}')
+            st.progress(min(1.0,max(0.0,(result["pct"] or 0.0)/limit)) if limit>0 else 0.0)
+            st.caption(f'Loss from period start: {money(result["amount"])} · Start balance: {money(result["baseline"])}')
+    if not compact:
+        st.caption(f'Warning begins at {warning:.0f}% of each limit. Weekly period resets Monday; monthly period resets on the 1st. Calculated from recorded closed-trade P/L; floating loss and deposits/withdrawals are not yet included.')
+
+
 def show_risk_section(d, compact=False):
-    risk=calculate_risk_metrics(d)
+    settings=get_risk_settings()
+    risk=calculate_risk_metrics(d,settings["initial_balance"])
     def pct(v): return f"{v:.2f}%" if v is not None else "—"
     def ratio(v): return f"{v:.2f}" if v is not None else "—"
     st.markdown('<div class="section-kicker section-gap">RISK METRICS</div>',unsafe_allow_html=True)
     metrics=[
-        ("MAX DRAWDOWN %",pct(risk["max_dd_pct"]),"Largest peak-to-trough decline"),
-        ("CURRENT DRAWDOWN %",pct(risk["current_dd_pct"]),"Distance from latest equity peak"),
-        ("MAX EQUITY DRAWDOWN",money(risk["max_dd_money"]),"Largest realized P/L decline"),
+        ("MAX DRAWDOWN %",pct(risk["max_dd_pct"]),"Worst deficit below Initial Balance"),
+        ("CURRENT DRAWDOWN %",pct(risk["current_dd_pct"]),"Deficit below Initial Balance now"),
+        ("MAX EQUITY DRAWDOWN",money(risk["max_dd_money"]),"Largest loss below Initial Balance"),
         ("SHARPE RATIO",ratio(risk["sharpe"]),"Per-trade · non-annualized"),
         ("SORTINO RATIO",ratio(risk["sortino"]),"Per-trade · downside deviation")
     ]
@@ -600,14 +709,16 @@ def show_risk_section(d, compact=False):
         for label,value,note in metrics
     )+'</div>'
     st.markdown(cards,unsafe_allow_html=True)
-    st.caption("Drawdown % uses the peak of cumulative realized P/L, not account balance. Sharpe and Sortino use trade P/L observations, risk-free/target return = 0, and are not annualized. Accurate account-equity drawdown requires starting balance and deposit/withdrawal history.")
+    st.caption("Max/current drawdown are measured against fixed Initial Balance: gains above it return drawdown to 0%; losses below it are measured from that starting balance. Sharpe and Sortino use closed-trade P/L observations and are not annualized.")
+    if not compact:
+        show_risk_guard(d,compact=False)
     if not compact and not risk["drawdown"].empty:
         fig=go.Figure()
         fig.add_trace(go.Scatter(x=list(range(1,len(risk["drawdown"])+1)),y=risk["drawdown"],
             mode="lines",line=dict(color="#ff7184",width=2.2),fill="tozeroy",
             fillcolor="rgba(255,113,132,.10)",name="Drawdown",
             hovertemplate="Trade #%{x}<br>Drawdown: $%{y:,.2f}<extra></extra>"))
-        fig.update_layout(showlegend=False,xaxis_title="Closed trade",yaxis_title="Drawdown")
+        fig.update_layout(showlegend=False,xaxis_title="Closed trade",yaxis_title="Drawdown below Initial Balance")
         st.plotly_chart(chart_layout(fig,250),use_container_width=True,config={"displayModeBar":False})
 
 
@@ -621,6 +732,7 @@ def show_overview(d):
         f'<div class="hero-meta"><span class="live-dot"></span> PRIVATE JOURNAL <span class="hero-divider">/</span> {today_label}</div></div>',
         unsafe_allow_html=True
     )
+    show_risk_guard(d,compact=True)
     if d.empty:
         st.info("Belum ada trade. Tambahkan posisi manual atau import report MT5 untuk mulai.")
         c1,c2=st.columns(2)
@@ -1083,7 +1195,20 @@ def show_playbook(d):
     else: st.dataframe(notes,use_container_width=True,hide_index=True)
 
 def show_backup(d):
-    page_header("Backup & Settings","Your data is stored in the cloud. Export backups regularly." if CLOUD_DB else "Your data stays on this computer. Export backups regularly.")
+    page_header("Backup & Settings","Manage account risk limits, backups, and local storage.")
+    settings=get_risk_settings()
+    st.markdown("### Risk Guard settings")
+    st.caption("Initial Balance is the fixed account starting balance. Weekly and monthly drawdown are measured from the balance at the beginning of each period.")
+    with st.form("risk_guard_settings"):
+        initial_balance=st.number_input("Initial Balance ($)",min_value=0.0,value=float(settings["initial_balance"]),step=100.0,format="%.2f")
+        c1,c2=st.columns(2)
+        weekly_limit=c1.number_input("Weekly drawdown limit (%)",min_value=0.1,max_value=100.0,value=float(settings["weekly_limit_pct"]),step=0.1,format="%.1f")
+        monthly_limit=c2.number_input("Monthly drawdown limit (%)",min_value=0.1,max_value=100.0,value=float(settings["monthly_limit_pct"]),step=0.1,format="%.1f")
+        warning_pct=st.slider("Warning threshold (% of limit)",min_value=50,max_value=99,value=int(settings["warning_pct"]),step=1)
+        if st.form_submit_button("Save Risk Guard settings",type="primary"):
+            save_risk_settings(initial_balance,weekly_limit,monthly_limit,warning_pct)
+            st.success("Risk Guard settings saved.")
+            st.rerun()
     st.markdown('<div class="panel"><b>Storage location</b><br><span class="small-muted">Supabase PostgreSQL · private cloud database.</span></div>' if CLOUD_DB else '<div class="panel"><b>Storage location</b><br><span class="small-muted">trades.db · screenshots/ · in this application folder. No cloud account or external server is used.</span></div>',unsafe_allow_html=True)
     st.markdown("### Export")
     st.caption("CSV export includes all stored records, including archived rows excluded from performance metrics.")
